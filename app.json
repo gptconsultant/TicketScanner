@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "EventScan",
+    "slug": "event-scan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.eventscan"
+    },
+    "android": {
+      "package": "com.yourcompany.eventscan"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow EventScan to access your camera to scan QR codes."
+        }
+      ]
+    ]
+  }
+}
