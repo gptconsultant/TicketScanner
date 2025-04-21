@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, Platform } from 'react-native';
 import { 
   List, 
   Switch, 
@@ -17,7 +17,38 @@ import {
   Text,
 } from 'react-native-paper';
 import { Feather } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+
+// Conditionally import DateTimePicker based on platform
+let DateTimePicker;
+if (Platform.OS !== 'web') {
+  // On native platforms, use the community DateTimePicker
+  DateTimePicker = require('@react-native-community/datetimepicker').default;
+} else {
+  // On web, create a simple fallback component
+  DateTimePicker = ({ value, onChange }) => {
+    const handleTimeChange = (e) => {
+      const time = e.target.value;
+      if (time) {
+        const [hours, minutes] = time.split(':');
+        const date = new Date();
+        date.setHours(parseInt(hours, 10), parseInt(minutes, 10));
+        onChange({ type: 'set', nativeEvent: { timestamp: date } }, date);
+      }
+    };
+    
+    const formattedTime = `${value.getHours().toString().padStart(2, '0')}:${value.getMinutes().toString().padStart(2, '0')}`;
+    
+    return (
+      <input
+        type="time"
+        value={formattedTime}
+        onChange={handleTimeChange}
+        style={{ padding: 8, fontSize: 16, borderRadius: 4, borderWidth: 1, borderColor: '#ccc' }}
+      />
+    );
+  };
+}
+
 import useEvent from '../../hooks/useEvent';
 import { 
   fetchEventRules, 
