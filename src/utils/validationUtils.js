@@ -1,6 +1,6 @@
+import { parseQRData, validateQRFormat } from './qrUtils';
 import { validateRules } from '../services/rulesEngine';
 import { getCachedTicketById } from '../services/offlineStorage';
-import { parseQRData } from './qrUtils';
 
 /**
  * Validate a ticket offline using cached data and rules
@@ -12,59 +12,62 @@ import { parseQRData } from './qrUtils';
  */
 export const validateTicketOffline = async (qrData, eventId, gateId, rules) => {
   try {
-    // Parse QR data
-    let ticket = parseQRData(qrData);
+    // First, validate the QR format
+    const formatValidation = validateQRFormat(qrData);
+    if (!formatValidation.valid) {
+      return formatValidation;
+    }
     
-    if (!ticket) {
+    // Parse the QR data
+    const ticketData = parseQRData(qrData);
+    if (!ticketData) {
       return {
-        success: false,
-        error: 'Invalid QR code format',
-        ticket: null,
-        isOffline: true
+        valid: false,
+        reason: 'Invalid ticket format',
+        offline: true
       };
     }
     
-    // Check if ticket is for this event
-    if (ticket.eventId !== eventId) {
+    // Perform basic validation
+    const basicValidation = basicTicketValidation(ticketData);
+    if (!basicValidation.valid) {
       return {
-        success: false,
-        error: 'Ticket is for a different event',
-        ticket,
-        isOffline: true
+        ...basicValidation,
+        offline: true
       };
     }
     
-    // Try to get more detailed ticket info from cache
-    const cachedTicket = await getCachedTicketById(ticket.id);
-    if (cachedTicket) {
-      ticket = cachedTicket;
-    }
-    
-    // Apply validation rules
-    const rulesResult = validateRules(ticket, gateId, rules);
-    
-    if (!rulesResult.valid) {
+    // Check if the ticket is for this event
+    if (ticketData.eventId !== eventId) {
       return {
-        success: false,
-        error: rulesResult.reason,
-        ticket,
-        isOffline: true
+        valid: false,
+        reason: 'Ticket is for a different event',
+        ticket: ticketData,
+        offline: true
       };
     }
     
+    // Try to get cached ticket data
+    const cachedTicket = await getCachedTicketById(ticketData.id);
+    
+    // If we have cached data, use it, otherwise use the parsed data
+    const ticketToValidate = cachedTicket || ticketData;
+    
+    // Apply rules
+    const rulesValidation = validateRules(ticketToValidate, gateId, rules);
+    
+    // Return validation result
     return {
-      success: true,
-      message: 'Ticket validated successfully (offline)',
-      ticket,
-      isOffline: true
+      ...rulesValidation,
+      ticket: ticketToValidate,
+      offline: true
     };
   } catch (error) {
-    console.error('Offline validation error:', error);
+    console.error('Error validating ticket offline:', error);
     return {
-      success: false,
-      error: error.message || 'Error validating ticket offline',
-      ticket: null,
-      isOffline: true
+      valid: false,
+      reason: 'Error validating ticket',
+      offline: true
     };
   }
 };
@@ -75,28 +78,24 @@ export const validateTicketOffline = async (qrData, eventId, gateId, rules) => {
  * @returns {Object} - Validation result
  */
 export const basicTicketValidation = (ticket) => {
-  if (!ticket) {
-    return {
-      valid: false,
-      reason: 'No ticket data'
-    };
-  }
-  
+  // Check if ticket has minimum required fields
   if (!ticket.id) {
     return {
       valid: false,
-      reason: 'Invalid ticket: missing ID'
+      reason: 'Missing ticket ID',
+      ticket
     };
   }
   
   if (!ticket.eventId) {
     return {
       valid: false,
-      reason: 'Invalid ticket: missing event ID'
+      reason: 'Missing event ID',
+      ticket
     };
   }
   
-  return { valid: true };
+  return { valid: true, ticket };
 };
 
 /**
@@ -105,20 +104,15 @@ export const basicTicketValidation = (ticket) => {
  * @returns {string} - Formatted error message
  */
 export const formatValidationError = (error) => {
-  if (!error) {
-    return 'Unknown error occurred';
-  }
+  if (!error) return 'Unknown error';
   
-  // If the error is an object with a message property
-  if (error.message) {
+  if (typeof error === 'object' && error.message) {
     return error.message;
   }
   
-  // If the error is a string
   if (typeof error === 'string') {
     return error;
   }
   
-  // Otherwise, convert to string
-  return String(error);
+  return 'An error occurred during validation';
 };

@@ -1,7 +1,11 @@
 import { useContext } from 'react';
 import { EventContext } from '../contexts/EventContext';
 
-const useEvent = () => {
+/**
+ * Hook to access the event context
+ * @returns {Object} Event context methods and state
+ */
+export const useEvent = () => {
   const context = useContext(EventContext);
   
   if (!context) {
@@ -10,5 +14,3 @@ const useEvent = () => {
   
   return context;
 };
-
-export default useEvent;

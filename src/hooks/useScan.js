@@ -1,7 +1,11 @@
 import { useContext } from 'react';
 import { ScanContext } from '../contexts/ScanContext';
 
-const useScan = () => {
+/**
+ * Hook to access the scan context
+ * @returns {Object} Scan context methods and state
+ */
+export const useScan = () => {
   const context = useContext(ScanContext);
   
   if (!context) {
@@ -10,5 +14,3 @@ const useScan = () => {
   
   return context;
 };
-
-export default useScan;

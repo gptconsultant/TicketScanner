@@ -1,18 +1,5 @@
-import api from './api';
-import { 
-  mockFetchEvents, 
-  mockFetchGates, 
-  mockUpdateGateStatus,
-  mockCreateGate,
-  mockDeleteGate,
-  mockFetchEventRules,
-  mockCreateRule,
-  mockUpdateRule,
-  mockDeleteRule,
-  mockUpdateEventStatus,
-  mockCreateEvent,
-  mockDeleteEvent,
-} from './mockData';
+import { fetchFromAPI } from './api';
+import * as mockData from './mockData';
 
 /**
  * Fetch all events
@@ -20,18 +7,14 @@ import {
  */
 export const fetchEvents = async () => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.get('/events');
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockFetchEvents();
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI('/events');
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockFetchEvents();
   } catch (error) {
-    console.error('Fetch events error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to fetch events' 
-    };
+    console.error('Error fetching events:', error);
+    throw error;
   }
 };
 
@@ -42,18 +25,14 @@ export const fetchEvents = async () => {
  */
 export const fetchGates = async (eventId) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.get(`/events/${eventId}/gates`);
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockFetchGates(eventId);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/gates`);
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockFetchGates(eventId);
   } catch (error) {
-    console.error('Fetch gates error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to fetch gates' 
-    };
+    console.error(`Error fetching gates for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -66,20 +45,20 @@ export const fetchGates = async (eventId) => {
  */
 export const updateGateStatus = async (eventId, gateId, isEnabled) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.patch(`/events/${eventId}/gates/${gateId}`, { 
-    //   isEnabled 
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/gates/${gateId}`, {
+    //   method: 'PATCH',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ isEnabled }),
     // });
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockUpdateGateStatus(eventId, gateId, isEnabled);
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockUpdateGateStatus(eventId, gateId, isEnabled);
   } catch (error) {
-    console.error('Update gate status error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to update gate status' 
-    };
+    console.error(`Error updating gate ${gateId} status for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -92,22 +71,20 @@ export const updateGateStatus = async (eventId, gateId, isEnabled) => {
  */
 export const createGate = async (eventId, name, identifier) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.post(`/events/${eventId}/gates`, { 
-    //   name, 
-    //   identifier,
-    //   isEnabled: true
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/gates`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ name, identifier }),
     // });
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockCreateGate(eventId, name, identifier);
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockCreateGate(eventId, name, identifier);
   } catch (error) {
-    console.error('Create gate error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to create gate' 
-    };
+    console.error(`Error creating gate for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -119,18 +96,16 @@ export const createGate = async (eventId, name, identifier) => {
  */
 export const deleteGate = async (eventId, gateId) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.delete(`/events/${eventId}/gates/${gateId}`);
-    // return { success: true };
-
-    // For now, use mock data
-    return await mockDeleteGate(eventId, gateId);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/gates/${gateId}`, {
+    //   method: 'DELETE',
+    // });
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockDeleteGate(eventId, gateId);
   } catch (error) {
-    console.error('Delete gate error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to delete gate' 
-    };
+    console.error(`Error deleting gate ${gateId} for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -141,18 +116,14 @@ export const deleteGate = async (eventId, gateId) => {
  */
 export const fetchEventRules = async (eventId) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.get(`/events/${eventId}/rules`);
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockFetchEventRules(eventId);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/rules`);
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockFetchEventRules(eventId);
   } catch (error) {
-    console.error('Fetch event rules error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to fetch event rules' 
-    };
+    console.error(`Error fetching rules for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -167,23 +138,20 @@ export const fetchEventRules = async (eventId) => {
  */
 export const createRule = async (eventId, name, type, value, isActive) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.post(`/events/${eventId}/rules`, {
-    //   name,
-    //   type,
-    //   value,
-    //   isActive
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/rules`, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ name, type, value, isActive }),
     // });
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockCreateRule(eventId, name, type, value, isActive);
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockCreateRule(eventId, name, type, value, isActive);
   } catch (error) {
-    console.error('Create rule error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to create rule' 
-    };
+    console.error(`Error creating rule for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -195,18 +163,20 @@ export const createRule = async (eventId, name, type, value, isActive) => {
  */
 export const updateRule = async (eventId, rule) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.put(`/events/${eventId}/rules/${rule.id}`, rule);
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockUpdateRule(eventId, rule);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/rules/${rule.id}`, {
+    //   method: 'PATCH',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify(rule),
+    // });
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockUpdateRule(eventId, rule);
   } catch (error) {
-    console.error('Update rule error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to update rule' 
-    };
+    console.error(`Error updating rule ${rule.id} for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -218,18 +188,16 @@ export const updateRule = async (eventId, rule) => {
  */
 export const deleteRule = async (eventId, ruleId) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.delete(`/events/${eventId}/rules/${ruleId}`);
-    // return { success: true };
-
-    // For now, use mock data
-    return await mockDeleteRule(eventId, ruleId);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/rules/${ruleId}`, {
+    //   method: 'DELETE',
+    // });
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockDeleteRule(eventId, ruleId);
   } catch (error) {
-    console.error('Delete rule error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to delete rule' 
-    };
+    console.error(`Error deleting rule ${ruleId} for event ${eventId}:`, error);
+    throw error;
   }
 };
 
@@ -241,18 +209,20 @@ export const deleteRule = async (eventId, ruleId) => {
  */
 export const updateEventStatus = async (eventId, isActive) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.patch(`/events/${eventId}`, { isActive });
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockUpdateEventStatus(eventId, isActive);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}`, {
+    //   method: 'PATCH',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ isActive }),
+    // });
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockUpdateEventStatus(eventId, isActive);
   } catch (error) {
-    console.error('Update event status error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to update event status' 
-    };
+    console.error(`Error updating event ${eventId} status:`, error);
+    throw error;
   }
 };
 
@@ -264,22 +234,20 @@ export const updateEventStatus = async (eventId, isActive) => {
  */
 export const createEvent = async (name, date) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.post('/events', { 
-    //   name, 
-    //   date,
-    //   isActive: true
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI('/events', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ name, date }),
     // });
-    // return { success: true, data: response.data };
-
-    // For now, use mock data
-    return await mockCreateEvent(name, date);
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockCreateEvent(name, date);
   } catch (error) {
-    console.error('Create event error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to create event' 
-    };
+    console.error('Error creating event:', error);
+    throw error;
   }
 };
 
@@ -290,17 +258,15 @@ export const createEvent = async (name, date) => {
  */
 export const deleteEvent = async (eventId) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.delete(`/events/${eventId}`);
-    // return { success: true };
-
-    // For now, use mock data
-    return await mockDeleteEvent(eventId);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}`, {
+    //   method: 'DELETE',
+    // });
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockDeleteEvent(eventId);
   } catch (error) {
-    console.error('Delete event error:', error);
-    return { 
-      success: false, 
-      error: error.response?.data?.message || error.message || 'Failed to delete event' 
-    };
+    console.error(`Error deleting event ${eventId}:`, error);
+    throw error;
   }
 };

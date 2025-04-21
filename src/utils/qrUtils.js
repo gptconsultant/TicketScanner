@@ -6,32 +6,18 @@
 export const parseQRData = (qrData) => {
   try {
     // Try to parse as JSON
-    return JSON.parse(qrData);
-  } catch (error) {
-    console.warn('Failed to parse QR data as JSON:', error);
-    
-    // Try to parse as URL query params
-    try {
-      if (qrData.includes('?')) {
-        const params = new URLSearchParams(qrData.split('?')[1]);
-        const ticketId = params.get('ticket') || params.get('id');
-        const eventId = params.get('event') || params.get('eventId');
-        
-        if (ticketId && eventId) {
-          return { 
-            id: ticketId, 
-            eventId: parseInt(eventId),
-            // Other fields will be populated by the server validation
-          };
-        }
-      }
-    } catch (urlError) {
-      console.warn('Failed to parse QR data as URL params:', urlError);
+    if (typeof qrData === 'string') {
+      return JSON.parse(qrData);
     }
+    // If already an object, return as is
+    if (typeof qrData === 'object' && qrData !== null) {
+      return qrData;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error parsing QR data:', error);
+    return null;
   }
-  
-  // If all parsing attempts fail, return null
-  return null;
 };
 
 /**
@@ -40,43 +26,44 @@ export const parseQRData = (qrData) => {
  * @returns {Object} - Validation result with validity and reason
  */
 export const validateQRFormat = (qrData) => {
-  // Check if data is empty
-  if (!qrData || typeof qrData !== 'string') {
-    return { 
-      isValid: false, 
-      reason: 'Empty or invalid QR code data' 
+  if (!qrData) {
+    return {
+      valid: false,
+      reason: 'No ticket data found'
     };
   }
-  
-  // Try to parse the data
-  const parsedTicket = parseQRData(qrData);
-  
-  if (!parsedTicket) {
-    return { 
-      isValid: false, 
-      reason: 'QR code contains invalid data format' 
+
+  try {
+    const parsedData = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+    
+    // Check for minimum required fields
+    if (!parsedData.id) {
+      return {
+        valid: false,
+        reason: 'Missing ticket ID',
+        ticket: parsedData
+      };
+    }
+    
+    if (!parsedData.eventId) {
+      return {
+        valid: false,
+        reason: 'Missing event ID',
+        ticket: parsedData
+      };
+    }
+    
+    // Valid format
+    return {
+      valid: true,
+      ticket: parsedData
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      reason: 'Invalid ticket format (not valid JSON)'
     };
   }
-  
-  // Check for minimum required fields
-  if (!parsedTicket.id) {
-    return { 
-      isValid: false, 
-      reason: 'QR code missing ticket ID' 
-    };
-  }
-  
-  if (!parsedTicket.eventId) {
-    return { 
-      isValid: false, 
-      reason: 'QR code missing event ID' 
-    };
-  }
-  
-  return { 
-    isValid: true, 
-    ticket: parsedTicket 
-  };
 };
 
 /**
@@ -85,11 +72,20 @@ export const validateQRFormat = (qrData) => {
  * @returns {string} - JSON string formatted for QR code
  */
 export const generateQRData = (ticket) => {
-  const qrData = {
-    id: ticket.id,
-    eventId: ticket.eventId,
-    type: ticket.type,
-  };
-  
-  return JSON.stringify(qrData);
+  try {
+    // Ensure minimum required fields
+    const standardizedTicket = {
+      id: ticket.id,
+      eventId: ticket.eventId,
+      type: ticket.type || 'STANDARD',
+      holderName: ticket.holderName || '',
+      seat: ticket.seat || '',
+      ...ticket
+    };
+    
+    return JSON.stringify(standardizedTicket);
+  } catch (error) {
+    console.error('Error generating QR data:', error);
+    return '';
+  }
 };

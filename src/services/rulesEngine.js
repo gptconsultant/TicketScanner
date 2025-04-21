@@ -6,23 +6,29 @@
  * @returns {Object} - Validation result with valid flag and reason if invalid
  */
 export const validateRules = (ticket, gateId, rules = []) => {
-  // Filter to only active rules
-  const activeRules = rules.filter(rule => rule.isActive);
-  
-  // If no active rules, ticket is valid
-  if (activeRules.length === 0) {
+  // If no rules, consider the ticket valid
+  if (!rules || rules.length === 0) {
     return { valid: true };
   }
   
-  // Check each rule type
-  for (const rule of activeRules) {
-    const result = validateRule(rule, ticket, gateId);
-    if (!result.valid) {
-      return result;
+  // Get rules that apply to this gate
+  const applicableRules = getApplicableRules(rules, gateId);
+  
+  // Validate against each applicable rule
+  for (const rule of applicableRules) {
+    // Skip inactive rules
+    if (!rule.isActive) continue;
+    
+    // Validate against this rule
+    const validation = validateRule(rule, ticket, gateId);
+    
+    // If any rule fails, return the failure result
+    if (!validation.valid) {
+      return validation;
     }
   }
   
-  // All rules passed
+  // If all rules pass, ticket is valid
   return { valid: true };
 };
 
@@ -37,18 +43,18 @@ const validateRule = (rule, ticket, gateId) => {
   switch (rule.type) {
     case 'TIME_RESTRICTION':
       return validateTimeRestriction(rule, ticket);
-    
+      
     case 'GATE_RESTRICTION':
       return validateGateRestriction(rule, ticket, gateId);
-    
+      
     case 'TICKET_TYPE_RESTRICTION':
       return validateTicketTypeRestriction(rule, ticket);
-    
+      
     case 'ONE_TIME_USE':
       return validateOneTimeUse(ticket);
-    
+      
     default:
-      // Unknown rule type, consider it valid
+      // Unknown rule type, consider it passed
       return { valid: true };
   }
 };
@@ -60,26 +66,38 @@ const validateRule = (rule, ticket, gateId) => {
  * @returns {Object} - Validation result
  */
 const validateTimeRestriction = (rule, ticket) => {
-  // Parse the time restriction (expected format: "HH:MM")
-  const [hours, minutes] = rule.value.split(':').map(Number);
+  // Extract time range from rule value (format: "HH:MM-HH:MM")
+  const timeRange = rule.value.split('-');
   
-  if (isNaN(hours) || isNaN(minutes)) {
-    // Invalid time format in rule, consider it valid
+  if (timeRange.length !== 2) {
+    // Invalid time range format, consider it passed
     return { valid: true };
   }
   
-  // Create cutoff time for today
-  const cutoffTime = new Date();
-  cutoffTime.setHours(hours, minutes, 0, 0);
+  const [startTime, endTime] = timeRange;
   
   // Get current time
-  const currentTime = new Date();
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
   
-  // Check if current time is past cutoff
-  if (currentTime > cutoffTime) {
-    return { 
-      valid: false, 
-      reason: `Entry not allowed after ${rule.value}` 
+  // Parse start time
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  
+  // Parse end time
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+  
+  // Convert to minutes for easier comparison
+  const currentTimeInMinutes = currentHour * 60 + currentMinute;
+  const startTimeInMinutes = startHour * 60 + startMinute;
+  const endTimeInMinutes = endHour * 60 + endMinute;
+  
+  // Check if current time is within range
+  if (currentTimeInMinutes < startTimeInMinutes || currentTimeInMinutes > endTimeInMinutes) {
+    return {
+      valid: false,
+      reason: `Entry is only allowed between ${startTime} and ${endTime}`,
+      rule: rule
     };
   }
   
@@ -94,14 +112,14 @@ const validateTimeRestriction = (rule, ticket) => {
  * @returns {Object} - Validation result
  */
 const validateGateRestriction = (rule, ticket, gateId) => {
-  // Allowed gates should be comma-separated in rule.value
-  const allowedGateIds = rule.value.split(',').map(id => id.trim());
+  // Extract allowed gates from rule value (comma-separated gate IDs)
+  const allowedGates = rule.value.split(',').map(Number);
   
-  // Check if current gate is in allowed gates
-  if (!allowedGateIds.includes(gateId.toString())) {
-    return { 
-      valid: false, 
-      reason: `This ticket can only be used at: ${rule.value}` 
+  if (!allowedGates.includes(gateId)) {
+    return {
+      valid: false,
+      reason: 'This ticket is not valid for this entrance',
+      rule: rule
     };
   }
   
@@ -115,14 +133,14 @@ const validateGateRestriction = (rule, ticket, gateId) => {
  * @returns {Object} - Validation result
  */
 const validateTicketTypeRestriction = (rule, ticket) => {
-  // Allowed ticket types should be comma-separated in rule.value
+  // Extract allowed ticket types from rule value (comma-separated types)
   const allowedTypes = rule.value.split(',').map(type => type.trim());
   
-  // Check if ticket type is in allowed types
   if (!allowedTypes.includes(ticket.type)) {
-    return { 
-      valid: false, 
-      reason: `Ticket type "${ticket.type}" is not allowed` 
+    return {
+      valid: false,
+      reason: `This entrance is only for ${allowedTypes.join('/')} tickets`,
+      rule: rule
     };
   }
   
@@ -135,11 +153,16 @@ const validateTicketTypeRestriction = (rule, ticket) => {
  * @returns {Object} - Validation result
  */
 const validateOneTimeUse = (ticket) => {
-  // Check if ticket has already been used
-  if (ticket.isUsed) {
-    return { 
-      valid: false, 
-      reason: 'Ticket has already been used' 
+  // This would normally check if the ticket has been used before
+  // For the mock implementation, we'll just assume it's valid
+  // In a real app, this would check against a database
+  
+  // If the ticket has a "used" property and it's true, consider it invalid
+  if (ticket.used) {
+    return {
+      valid: false,
+      reason: 'This ticket has already been used',
+      rule: { type: 'ONE_TIME_USE', name: 'One-time Entry' }
     };
   }
   
@@ -153,23 +176,11 @@ const validateOneTimeUse = (ticket) => {
  * @returns {Array} - Rules that apply to this gate
  */
 export const getApplicableRules = (allRules, gateId) => {
-  if (!allRules || !Array.isArray(allRules)) {
-    return [];
-  }
-  
-  return allRules.filter(rule => {
-    // If rule is not active, exclude it
-    if (!rule.isActive) {
-      return false;
-    }
-    
-    // If rule is not gate-specific, include it
-    if (rule.type !== 'GATE_RESTRICTION') {
-      return true;
-    }
-    
-    // If rule is gate-specific, check if this gate is included
-    const allowedGateIds = rule.value.split(',').map(id => id.trim());
-    return allowedGateIds.includes(gateId.toString());
-  });
+  return allRules.filter(rule => 
+    // If the rule has gateIds field and it's an array, check if this gate is included
+    !rule.gateIds || 
+    !Array.isArray(rule.gateIds) || 
+    rule.gateIds.length === 0 || 
+    rule.gateIds.includes(gateId)
+  );
 };

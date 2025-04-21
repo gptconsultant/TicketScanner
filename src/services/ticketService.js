@@ -1,6 +1,8 @@
-import api from './api';
+import { fetchFromAPI } from './api';
+import * as mockData from './mockData';
 import { validateRules } from './rulesEngine';
-import { mockValidateTicket, mockSyncCheckIns } from './mockData';
+import { parseQRData, validateQRFormat } from '../utils/qrUtils';
+import { getCachedTicketById, markCachedTicketAsUsed } from './offlineStorage';
 
 /**
  * Validate a ticket against the server
@@ -11,35 +13,32 @@ import { mockValidateTicket, mockSyncCheckIns } from './mockData';
  */
 export const validateTicket = async (ticketData, eventId, gateId) => {
   try {
-    // Parse ticket data - we expect a JSON string from the QR code
-    let ticket;
-    try {
-      ticket = JSON.parse(ticketData);
-    } catch (e) {
-      return {
-        success: false,
-        error: 'Invalid ticket format. QR code contains invalid data.',
-        ticket: null
-      };
+    // Validate QR format first
+    const formatValidation = validateQRFormat(ticketData);
+    if (!formatValidation.valid) {
+      return formatValidation;
     }
-
-    // When ready for real API, uncomment this:
-    // const response = await api.post('/tickets/validate', {
-    //   ticketId: ticket.id,
-    //   eventId,
-    //   gateId,
-    //   scannedAt: new Date().toISOString()
+    
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI('/tickets/validate', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({
+    //     ticketData,
+    //     eventId,
+    //     gateId,
+    //   }),
     // });
-    // return response.data;
-
-    // For now, use mock data
-    return await mockValidateTicket(ticket, eventId, gateId);
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockValidateTicket(ticketData, eventId, gateId);
   } catch (error) {
-    console.error('Validate ticket error:', error);
-    return {
-      success: false,
-      error: error.response?.data?.message || error.message || 'Failed to validate ticket',
-      ticket: null
+    console.error('Error validating ticket:', error);
+    return { 
+      valid: false, 
+      reason: error.message || 'Error validating ticket' 
     };
   }
 };
@@ -53,43 +52,60 @@ export const validateTicket = async (ticketData, eventId, gateId) => {
  * @returns {Object} - Validation result
  */
 export const validateTicketOffline = (ticket, eventId, gateId, rules) => {
-  // Basic validation first
-  if (!ticket || !ticket.id) {
+  try {
+    // Parse ticket data if it's a string
+    let ticketObj;
+    if (typeof ticket === 'string') {
+      // Validate QR format first
+      const formatValidation = validateQRFormat(ticket);
+      if (!formatValidation.valid) {
+        return formatValidation;
+      }
+      
+      ticketObj = parseQRData(ticket);
+    } else {
+      ticketObj = ticket;
+    }
+    
+    // Check if ticket exists in offline cache
+    if (!ticketObj || !ticketObj.id) {
+      return { 
+        valid: false, 
+        reason: 'Invalid ticket format',
+        ticket: ticketObj
+      };
+    }
+    
+    // Check if ticket is for this event
+    if (ticketObj.eventId && ticketObj.eventId !== eventId) {
+      return { 
+        valid: false, 
+        reason: 'Ticket is for a different event',
+        ticket: ticketObj
+      };
+    }
+    
+    // Apply validation rules
+    const rulesValidation = validateRules(ticketObj, gateId, rules);
+    
+    // If validation passed, mark ticket as used in offline storage
+    if (rulesValidation.valid) {
+      markCachedTicketAsUsed(ticketObj.id);
+    }
+    
     return {
-      success: false,
-      error: 'Invalid ticket format',
-      ticket: null,
-      isOffline: true
+      ...rulesValidation,
+      ticket: ticketObj,
+      offline: true
+    };
+  } catch (error) {
+    console.error('Error validating ticket offline:', error);
+    return { 
+      valid: false, 
+      reason: error.message || 'Error validating ticket offline',
+      offline: true
     };
   }
-
-  // Ensure ticket is for the correct event
-  if (ticket.eventId !== eventId) {
-    return {
-      success: false,
-      error: 'Ticket is for a different event',
-      ticket,
-      isOffline: true
-    };
-  }
-
-  // Apply rule validations (from rulesEngine.js)
-  const ruleValidation = validateRules(ticket, gateId, rules);
-  if (!ruleValidation.valid) {
-    return {
-      success: false,
-      error: ruleValidation.reason,
-      ticket,
-      isOffline: true
-    };
-  }
-
-  return {
-    success: true,
-    message: 'Ticket validated successfully (offline)',
-    ticket,
-    isOffline: true
-  };
 };
 
 /**
@@ -99,19 +115,20 @@ export const validateTicketOffline = (ticket, eventId, gateId, rules) => {
  */
 export const syncCheckIns = async (checkIns) => {
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.post('/tickets/sync', { checkIns });
-    // return response.data.results;
-
-    // For now, use mock data
-    return await mockSyncCheckIns(checkIns);
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI('/tickets/sync', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ checkIns }),
+    // });
+    
+    // For demo purposes, use mock implementation
+    return await mockData.mockSyncCheckIns(checkIns);
   } catch (error) {
-    console.error('Sync check-ins error:', error);
-    throw new Error(
-      error.response?.data?.message || 
-      error.message || 
-      'Failed to sync check-ins'
-    );
+    console.error('Error syncing check-ins:', error);
+    throw error;
   }
 };
 
@@ -122,14 +139,13 @@ export const syncCheckIns = async (checkIns) => {
  */
 export const getTicketHistory = async (eventId) => {
   try {
-    const response = await api.get(`/events/${eventId}/tickets/history`);
-    return response.data;
+    // In a real app, this would call your backend API
+    // return await fetchFromAPI(`/events/${eventId}/tickets/history`);
+    
+    // For demo purposes, return an empty array
+    return [];
   } catch (error) {
-    console.error('Get ticket history error:', error);
-    throw new Error(
-      error.response?.data?.message || 
-      error.message || 
-      'Failed to get ticket history'
-    );
+    console.error(`Error getting ticket history for event ${eventId}:`, error);
+    throw error;
   }
 };
