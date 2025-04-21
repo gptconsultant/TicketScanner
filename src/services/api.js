@@ -1,26 +1,7 @@
-import { Platform } from 'react-native';
+import { isAPIReachable } from '../utils/networkUtils';
 
-// Base API URL - would be replaced with your actual API endpoint
-const API_BASE_URL = 'https://api.event-scanner.example.com';
-
-// API endpoints
-const ENDPOINTS = {
-  AUTH: {
-    LOGIN: '/auth/login',
-    LOGOUT: '/auth/logout',
-    VALIDATE_TOKEN: '/auth/validate',
-  },
-  EVENTS: {
-    LIST: '/events',
-    GATES: '/events/:eventId/gates',
-    RULES: '/events/:eventId/rules',
-  },
-  TICKETS: {
-    VALIDATE: '/tickets/validate',
-    SYNC: '/tickets/sync',
-    HISTORY: '/events/:eventId/tickets/history',
-  },
-};
+// Base API URL - would point to your backend in production
+const API_BASE_URL = 'https://api.example.com';
 
 /**
  * Generic fetch wrapper with authentication and error handling
@@ -31,33 +12,39 @@ const ENDPOINTS = {
  */
 export const fetchFromAPI = async (endpoint, options = {}, authToken = null) => {
   try {
+    // Check if API is reachable
+    const isReachable = await isAPIReachable();
+    if (!isReachable) {
+      throw new Error('API is not reachable. Please check your internet connection.');
+    }
+
+    // Prepare headers
     const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'User-Agent': `EventScanner/${Platform.OS}`,
+      ...(options.headers || {}),
     };
 
+    // Add auth token if provided
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`;
     }
 
+    // Make the request
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-      },
+      headers,
     });
 
+    // Parse response
     const data = await response.json();
 
+    // Check for error
     if (!response.ok) {
-      throw new Error(data.message || 'API request failed');
+      throw new Error(data.message || `API error: ${response.status}`);
     }
 
     return data;
   } catch (error) {
-    console.error('API request error:', error);
+    console.error(`API Error (${endpoint}):`, error);
     throw error;
   }
 };
@@ -68,30 +55,19 @@ export const fetchFromAPI = async (endpoint, options = {}, authToken = null) => 
  */
 export const checkApiConnection = async () => {
   try {
-    // Using a simple endpoint that doesn't require authentication
-    // In a real app, you might have a specific health check endpoint
-    // This is just a mock function for demonstration
-    
-    // In development or when using mock data, we'll return true
-    // In a real app, you would use the commented code below
-    
-    /* 
+    // Use a timeout to avoid hanging
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     const response = await fetch(`${API_BASE_URL}/health`, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-      // Short timeout to not block the UI for too long
-      timeout: 5000,
+      signal: controller.signal,
     });
-    
+
+    clearTimeout(timeoutId);
     return response.ok;
-    */
-    
-    // For demo purposes, we'll simulate a successful connection
-    return true;
   } catch (error) {
-    console.error('API connection check error:', error);
+    console.log('API connection check failed:', error.message);
     return false;
   }
 };

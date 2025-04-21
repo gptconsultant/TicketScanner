@@ -1,75 +1,86 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import NetInfo from '@react-native-community/netinfo';
-import { isAPIReachable } from '../utils/networkUtils';
+import { registerNetworkListeners } from '../utils/networkUtils';
 
-export const NetworkContext = createContext();
+// Create context
+export const NetworkContext = createContext({
+  isConnected: true,
+  isInternetReachable: true,
+  apiIsReachable: true,
+});
 
+// Custom hook for using the network context
+export const useNetwork = () => useContext(NetworkContext);
+
+// Provider component
 export const NetworkProvider = ({ children }) => {
-  const [isConnected, setIsConnected] = useState(true);
-  const [isServerReachable, setIsServerReachable] = useState(true);
+  const [netInfo, setNetInfo] = useState({
+    isConnected: true,
+    isInternetReachable: true,
+  });
+  const [apiIsReachable, setApiIsReachable] = useState(true);
+  const [lastOnlineTime, setLastOnlineTime] = useState(null);
 
+  // Monitor network connectivity
   useEffect(() => {
-    // Check initial network state
-    const checkConnection = async () => {
-      try {
-        const networkState = await NetInfo.fetch();
-        setIsConnected(networkState.isConnected);
-        
-        if (networkState.isConnected) {
-          const apiReachable = await isAPIReachable();
-          setIsServerReachable(apiReachable);
-        } else {
-          setIsServerReachable(false);
-        }
-      } catch (error) {
-        console.error('Network check error:', error);
-        setIsServerReachable(false);
-      }
+    // Handle connection
+    const handleConnection = () => {
+      setApiIsReachable(true);
+      setLastOnlineTime(new Date());
     };
 
-    checkConnection();
+    // Handle disconnection
+    const handleDisconnection = () => {
+      setApiIsReachable(false);
+    };
 
-    // Subscribe to network state changes
-    const unsubscribe = NetInfo.addEventListener(async (state) => {
-      setIsConnected(state.isConnected);
+    // Subscribe to network state updates
+    const unsubscribeNetInfo = NetInfo.addEventListener(state => {
+      setNetInfo({
+        isConnected: state.isConnected,
+        isInternetReachable: state.isInternetReachable,
+      });
       
-      if (state.isConnected) {
-        try {
-          const apiReachable = await isAPIReachable();
-          setIsServerReachable(apiReachable);
-        } catch (error) {
-          setIsServerReachable(false);
-        }
-      } else {
-        setIsServerReachable(false);
+      if (state.isConnected && state.isInternetReachable) {
+        setLastOnlineTime(new Date());
       }
     });
 
-    // Set up periodic API reachability check when connected
-    let intervalId;
-    if (isConnected) {
-      intervalId = setInterval(async () => {
-        try {
-          const apiReachable = await isAPIReachable();
-          setIsServerReachable(apiReachable);
-        } catch (error) {
-          setIsServerReachable(false);
-        }
-      }, 30000); // Check every 30 seconds
-    }
+    // Subscribe to API reachability updates
+    const unsubscribeApiMonitor = registerNetworkListeners(
+      handleConnection,
+      handleDisconnection
+    );
 
-    // Cleanup function
+    // Initial network state check
+    NetInfo.fetch().then(state => {
+      setNetInfo({
+        isConnected: state.isConnected,
+        isInternetReachable: state.isInternetReachable,
+      });
+      
+      if (state.isConnected && state.isInternetReachable) {
+        setLastOnlineTime(new Date());
+      }
+    });
+
+    // Cleanup
     return () => {
-      unsubscribe();
-      if (intervalId) clearInterval(intervalId);
+      unsubscribeNetInfo();
+      unsubscribeApiMonitor();
     };
-  }, [isConnected]);
+  }, []);
 
   return (
-    <NetworkContext.Provider value={{ isConnected, isServerReachable }}>
+    <NetworkContext.Provider
+      value={{
+        ...netInfo,
+        apiIsReachable,
+        lastOnlineTime,
+        isOfflineMode: !apiIsReachable,
+      }}
+    >
       {children}
     </NetworkContext.Provider>
   );
 };
-
-export const useNetwork = () => useContext(NetworkContext);

@@ -7,17 +7,17 @@ import { checkApiConnection } from '../services/api';
  */
 export const isAPIReachable = async () => {
   try {
-    // First check if device has network connection
-    const networkState = await NetInfo.fetch();
-    if (!networkState.isConnected) {
+    // First check if the device has internet connectivity
+    const netInfo = await NetInfo.fetch();
+    
+    if (!netInfo.isConnected) {
       return false;
     }
     
-    // Then check if our API server is reachable
-    const isReachable = await checkApiConnection();
-    return isReachable;
+    // Then check if the API is reachable
+    return await checkApiConnection();
   } catch (error) {
-    console.error('API reachability check error:', error);
+    console.error('Error checking API reachability:', error);
     return false;
   }
 };
@@ -29,15 +29,17 @@ export const isAPIReachable = async () => {
  * @returns {Function} - Cleanup function to unsubscribe
  */
 export const registerNetworkListeners = (onConnected, onDisconnected) => {
+  // Subscribe to network state updates
   const unsubscribe = NetInfo.addEventListener(state => {
     if (state.isConnected) {
-      if (typeof onConnected === 'function') {
-        onConnected();
-      }
+      // Check if API is reachable when connection is established
+      checkApiConnection().then(isReachable => {
+        if (isReachable) {
+          onConnected();
+        }
+      });
     } else {
-      if (typeof onDisconnected === 'function') {
-        onDisconnected();
-      }
+      onDisconnected();
     }
   });
   
@@ -54,19 +56,24 @@ export const registerNetworkListeners = (onConnected, onDisconnected) => {
 export const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
   let lastError;
   
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error;
       
-      // Calculate delay with exponential backoff and jitter
-      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+      if (attempt === maxRetries) {
+        break;
+      }
       
-      console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`);
+      // Calculate exponential backoff delay
+      const delay = baseDelay * Math.pow(2, attempt);
       
-      // Wait for the calculated delay
-      await new Promise(resolve => setTimeout(resolve, delay));
+      // Add some randomness to prevent all clients retrying simultaneously
+      const jitter = Math.random() * 100;
+      
+      // Wait before next attempt
+      await new Promise(resolve => setTimeout(resolve, delay + jitter));
     }
   }
   

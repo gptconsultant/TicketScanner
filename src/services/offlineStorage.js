@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const OFFLINE_CHECKINS_KEY = 'offline_checkins';
-const OFFLINE_TICKETS_KEY = 'offline_tickets';
+// Storage keys
+const OFFLINE_CHECK_INS_KEY = '@event_scanner:offline_check_ins';
+const CACHED_TICKETS_KEY = '@event_scanner:cached_tickets';
 
 /**
  * Save a check-in to offline storage
@@ -13,17 +14,23 @@ export const saveCheckInOffline = async (checkInData) => {
     // Get existing check-ins
     const existingCheckIns = await getOfflineCheckIns();
     
-    // Add the new check-in
-    const updatedCheckIns = [...existingCheckIns, checkInData];
+    // Add new check-in with timestamp
+    const newCheckIn = {
+      ...checkInData,
+      offlineTimestamp: new Date().toISOString(),
+      synced: false,
+    };
     
-    // Save back to storage
+    // Save updated array
     await AsyncStorage.setItem(
-      OFFLINE_CHECKINS_KEY, 
-      JSON.stringify(updatedCheckIns)
+      OFFLINE_CHECK_INS_KEY,
+      JSON.stringify([...existingCheckIns, newCheckIn])
     );
+    
+    console.log('Check-in saved offline:', newCheckIn);
   } catch (error) {
-    console.error('Error saving offline check-in:', error);
-    throw new Error('Failed to save check-in data offline');
+    console.error('Error saving check-in offline:', error);
+    throw error;
   }
 };
 
@@ -33,7 +40,7 @@ export const saveCheckInOffline = async (checkInData) => {
  */
 export const getOfflineCheckIns = async () => {
   try {
-    const checkInsJson = await AsyncStorage.getItem(OFFLINE_CHECKINS_KEY);
+    const checkInsJson = await AsyncStorage.getItem(OFFLINE_CHECK_INS_KEY);
     return checkInsJson ? JSON.parse(checkInsJson) : [];
   } catch (error) {
     console.error('Error getting offline check-ins:', error);
@@ -49,21 +56,21 @@ export const getOfflineCheckIns = async () => {
 export const removeOfflineCheckIn = async (ticketId) => {
   try {
     // Get existing check-ins
-    const existingCheckIns = await getOfflineCheckIns();
+    const checkIns = await getOfflineCheckIns();
     
-    // Filter out the check-in to remove
-    const updatedCheckIns = existingCheckIns.filter(
+    // Filter out the specific check-in
+    const updatedCheckIns = checkIns.filter(
       checkIn => checkIn.ticketId !== ticketId
     );
     
-    // Save back to storage
+    // Save updated array
     await AsyncStorage.setItem(
-      OFFLINE_CHECKINS_KEY, 
+      OFFLINE_CHECK_INS_KEY,
       JSON.stringify(updatedCheckIns)
     );
   } catch (error) {
     console.error('Error removing offline check-in:', error);
-    throw new Error('Failed to remove check-in data');
+    throw error;
   }
 };
 
@@ -73,10 +80,10 @@ export const removeOfflineCheckIn = async (ticketId) => {
  */
 export const clearOfflineCheckIns = async () => {
   try {
-    await AsyncStorage.removeItem(OFFLINE_CHECKINS_KEY);
+    await AsyncStorage.removeItem(OFFLINE_CHECK_INS_KEY);
   } catch (error) {
     console.error('Error clearing offline check-ins:', error);
-    throw new Error('Failed to clear offline check-ins');
+    throw error;
   }
 };
 
@@ -90,22 +97,28 @@ export const cacheTicketOffline = async (ticket) => {
     // Get existing cached tickets
     const existingTickets = await getCachedTickets();
     
-    // Check if ticket already exists
+    // Check if ticket already exists in cache
     const ticketExists = existingTickets.some(t => t.id === ticket.id);
     
     if (!ticketExists) {
-      // Add the new ticket
-      const updatedTickets = [...existingTickets, ticket];
+      // Add new ticket with cache timestamp
+      const cachedTicket = {
+        ...ticket,
+        cached_at: new Date().toISOString(),
+        used: false,
+      };
       
-      // Save back to storage
+      // Save updated array
       await AsyncStorage.setItem(
-        OFFLINE_TICKETS_KEY, 
-        JSON.stringify(updatedTickets)
+        CACHED_TICKETS_KEY,
+        JSON.stringify([...existingTickets, cachedTicket])
       );
+      
+      console.log('Ticket cached offline:', cachedTicket);
     }
   } catch (error) {
     console.error('Error caching ticket offline:', error);
-    throw new Error('Failed to cache ticket data offline');
+    throw error;
   }
 };
 
@@ -115,7 +128,7 @@ export const cacheTicketOffline = async (ticket) => {
  */
 export const getCachedTickets = async () => {
   try {
-    const ticketsJson = await AsyncStorage.getItem(OFFLINE_TICKETS_KEY);
+    const ticketsJson = await AsyncStorage.getItem(CACHED_TICKETS_KEY);
     return ticketsJson ? JSON.parse(ticketsJson) : [];
   } catch (error) {
     console.error('Error getting cached tickets:', error);
@@ -144,10 +157,10 @@ export const getCachedTicketById = async (ticketId) => {
  */
 export const clearCachedTickets = async () => {
   try {
-    await AsyncStorage.removeItem(OFFLINE_TICKETS_KEY);
+    await AsyncStorage.removeItem(CACHED_TICKETS_KEY);
   } catch (error) {
     console.error('Error clearing cached tickets:', error);
-    throw new Error('Failed to clear cached tickets');
+    throw error;
   }
 };
 
@@ -158,21 +171,32 @@ export const clearCachedTickets = async () => {
  */
 export const markCachedTicketAsUsed = async (ticketId) => {
   try {
+    // Get existing cached tickets
     const tickets = await getCachedTickets();
-    const ticketIndex = tickets.findIndex(ticket => ticket.id === ticketId);
     
-    if (ticketIndex === -1) {
-      return false;
+    // Find the ticket and update it
+    const updatedTickets = tickets.map(ticket => {
+      if (ticket.id === ticketId) {
+        return { ...ticket, used: true, used_at: new Date().toISOString() };
+      }
+      return ticket;
+    });
+    
+    // Check if any ticket was updated
+    const ticketWasUpdated = tickets.some(ticket => ticket.id === ticketId);
+    
+    if (ticketWasUpdated) {
+      // Save updated array
+      await AsyncStorage.setItem(
+        CACHED_TICKETS_KEY,
+        JSON.stringify(updatedTickets)
+      );
+      
+      console.log('Ticket marked as used:', ticketId);
+      return true;
     }
     
-    tickets[ticketIndex].isUsed = true;
-    
-    await AsyncStorage.setItem(
-      OFFLINE_TICKETS_KEY, 
-      JSON.stringify(tickets)
-    );
-    
-    return true;
+    return false;
   } catch (error) {
     console.error('Error marking cached ticket as used:', error);
     return false;
