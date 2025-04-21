@@ -7,17 +7,17 @@ import { checkApiConnection } from '../services/api';
  */
 export const isAPIReachable = async () => {
   try {
-    // First check if device has any connection
-    const netInfo = await NetInfo.fetch();
-    
-    if (!netInfo.isConnected) {
+    // First check if device has network connection
+    const networkState = await NetInfo.fetch();
+    if (!networkState.isConnected) {
       return false;
     }
     
-    // Then check if API server is reachable
-    return await checkApiConnection();
+    // Then check if our API server is reachable
+    const isReachable = await checkApiConnection();
+    return isReachable;
   } catch (error) {
-    console.error('Error checking API reachability:', error);
+    console.error('API reachability check error:', error);
     return false;
   }
 };
@@ -29,9 +29,8 @@ export const isAPIReachable = async () => {
  * @returns {Function} - Cleanup function to unsubscribe
  */
 export const registerNetworkListeners = (onConnected, onDisconnected) => {
-  // Set up network change listener
   const unsubscribe = NetInfo.addEventListener(state => {
-    if (state.isConnected && state.isInternetReachable !== false) {
+    if (state.isConnected) {
       if (typeof onConnected === 'function') {
         onConnected();
       }
@@ -55,17 +54,18 @@ export const registerNetworkListeners = (onConnected, onDisconnected) => {
 export const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
   let lastError;
   
-  for (let i = 0; i < maxRetries; i++) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      console.warn(`Attempt ${i + 1} failed:`, error);
       lastError = error;
       
-      // Calculate delay with exponential backoff
-      const delay = baseDelay * Math.pow(2, i);
+      // Calculate delay with exponential backoff and jitter
+      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
       
-      // Wait before next attempt
+      console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`);
+      
+      // Wait for the calculated delay
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }

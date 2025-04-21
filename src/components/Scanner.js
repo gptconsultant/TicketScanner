@@ -6,25 +6,28 @@ import {
   TouchableOpacity, 
   Dimensions,
   Vibration,
+  Alert,
 } from 'react-native';
 import { Camera } from 'expo-camera';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 import { ActivityIndicator } from 'react-native-paper';
-import { Feather } from '@expo/vector-icons';
 import useScan from '../hooks/useScan';
 import useEvent from '../hooks/useEvent';
+import { useNetwork } from '../contexts/NetworkContext';
 
 const windowWidth = Dimensions.get('window').width;
 
-const Scanner = ({ onScanComplete, disabled = false }) => {
+const Scanner = ({ onScanComplete }) => {
   const [hasPermission, setHasPermission] = useState(null);
-  const [torch, setTorch] = useState(false);
+  const [scanned, setScanned] = useState(false);
+  const [flashMode, setFlashMode] = useState(Camera.Constants.FlashMode.off);
+  const [loading, setLoading] = useState(false);
   const cameraRef = useRef(null);
   
+  const { validateTicket } = useScan();
   const { selectedEvent, selectedGate } = useEvent();
-  const { isScanning, processScan } = useScan();
-  
-  // Request camera permission
+  const { isConnected } = useNetwork();
+
   useEffect(() => {
     (async () => {
       const { status } = await Camera.requestCameraPermissionsAsync();
@@ -32,254 +35,233 @@ const Scanner = ({ onScanComplete, disabled = false }) => {
     })();
   }, []);
 
-  // Handle barcode scanning
+  const toggleFlash = () => {
+    setFlashMode(
+      flashMode === Camera.Constants.FlashMode.torch
+        ? Camera.Constants.FlashMode.off
+        : Camera.Constants.FlashMode.torch
+    );
+  };
+
+  const resetScanner = () => {
+    setScanned(false);
+    setLoading(false);
+  };
+
   const handleBarCodeScanned = async ({ type, data }) => {
-    if (isScanning || !selectedEvent || !selectedGate || disabled) return;
-    
-    // Vibrate device to provide feedback
-    Vibration.vibrate(200);
-    
     try {
-      // Process the scan
-      await processScan(data);
+      // Prevent multiple scans
+      if (scanned || loading) return;
       
-      // Call the callback if provided
-      if (onScanComplete) {
-        onScanComplete();
+      setScanned(true);
+      setLoading(true);
+      
+      // Provide haptic feedback
+      Vibration.vibrate(200);
+      
+      if (!selectedEvent || !selectedGate) {
+        Alert.alert('Error', 'Please select an event and gate before scanning');
+        resetScanner();
+        return;
       }
+      
+      // Validate the ticket
+      const result = await validateTicket(data, selectedEvent.id, selectedGate.id);
+      
+      // Pass result to parent component
+      if (onScanComplete) {
+        onScanComplete(result);
+      }
+      
     } catch (error) {
-      console.error('Error processing scan:', error);
+      console.error('Scanning error:', error);
+      Alert.alert('Scanning Error', error.message || 'Could not process ticket');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Toggle torch/flashlight
-  const toggleTorch = () => {
-    setTorch(!torch);
-  };
-
+  // Handle permission request result
   if (hasPermission === null) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#2c3e50" />
-        <Text style={styles.permissionText}>Requesting camera permission...</Text>
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.text}>Requesting camera permission...</Text>
       </View>
     );
   }
-
+  
   if (hasPermission === false) {
     return (
-      <View style={styles.centerContainer}>
-        <Feather name="camera-off" size={64} color="#e74c3c" />
-        <Text style={styles.permissionText}>No access to camera</Text>
-        <Text style={styles.permissionSubtext}>
-          Please enable camera access in your device settings to scan tickets.
-        </Text>
-      </View>
-    );
-  }
-
-  if (disabled) {
-    return (
-      <View style={styles.disabledContainer}>
-        <Feather name="camera-off" size={64} color="#7f8c8d" />
-        <Text style={styles.disabledText}>Scanner Disabled</Text>
-        <Text style={styles.disabledSubtext}>
-          Please start your shift to enable scanning.
-        </Text>
+      <View style={styles.container}>
+        <Text style={styles.text}>No access to camera</Text>
+        <TouchableOpacity 
+          style={styles.button}
+          onPress={async () => {
+            const { status } = await Camera.requestCameraPermissionsAsync();
+            setHasPermission(status === 'granted');
+          }}
+        >
+          <Text style={styles.buttonText}>Request Permission</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={styles.cameraContainer}>
+    <View style={styles.container}>
       <Camera
         ref={cameraRef}
         style={styles.camera}
         type={Camera.Constants.Type.back}
-        flashMode={
-          torch 
-            ? Camera.Constants.FlashMode.torch 
-            : Camera.Constants.FlashMode.off
-        }
+        flashMode={flashMode}
         barCodeScannerSettings={{
-          barCodeTypes: [
-            BarCodeScanner.Constants.BarCodeType.qr,
-            BarCodeScanner.Constants.BarCodeType.pdf417,
-          ],
+          barCodeTypes: [BarCodeScanner.Constants.BarCodeType.qr],
         }}
-        onBarCodeScanned={isScanning ? undefined : handleBarCodeScanned}
+        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
       >
         <View style={styles.overlay}>
-          <View style={styles.topOverlay} />
-          <View style={styles.middleOverlay}>
-            <View style={styles.sideOverlay} />
-            <View style={styles.scanWindow}>
-              <View style={styles.cornerTL} />
-              <View style={styles.cornerTR} />
-              <View style={styles.cornerBL} />
-              <View style={styles.cornerBR} />
-            </View>
-            <View style={styles.sideOverlay} />
+          {/* Frame for the QR code */}
+          <View style={styles.frameContainer}>
+            <View style={styles.frame} />
           </View>
-          <View style={styles.bottomOverlay}>
+          
+          {/* Status indicator */}
+          <View style={styles.statusContainer}>
+            <View style={[styles.statusIndicator, 
+              {backgroundColor: isConnected ? '#2ecc71' : '#e74c3c'}]} />
+            <Text style={styles.statusText}>
+              {isConnected ? 'Online Mode' : 'Offline Mode'}
+            </Text>
+          </View>
+          
+          {/* Controls */}
+          <View style={styles.controlsContainer}>
             <TouchableOpacity 
-              style={styles.torchButton} 
-              onPress={toggleTorch}
+              style={styles.controlButton} 
+              onPress={toggleFlash}
             >
-              <Feather 
-                name={torch ? "zap-off" : "zap"} 
-                size={24} 
-                color="white" 
-              />
-              <Text style={styles.torchText}>
-                {torch ? "Flash Off" : "Flash On"}
+              <Text style={styles.controlButtonText}>
+                {flashMode === Camera.Constants.FlashMode.torch ? 'Flash Off' : 'Flash On'}
               </Text>
             </TouchableOpacity>
+            
+            {scanned && !loading && (
+              <TouchableOpacity 
+                style={styles.controlButton} 
+                onPress={resetScanner}
+              >
+                <Text style={styles.controlButtonText}>Scan Again</Text>
+              </TouchableOpacity>
+            )}
           </View>
+          
+          {/* Loading indicator */}
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#ffffff" />
+              <Text style={styles.loadingText}>Processing...</Text>
+            </View>
+          )}
         </View>
       </Camera>
-      
-      {isScanning && (
-        <View style={styles.scanningOverlay}>
-          <ActivityIndicator size="large" color="white" />
-          <Text style={styles.scanningText}>Processing ticket...</Text>
-        </View>
-      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  cameraContainer: {
+  container: {
     flex: 1,
-    position: 'relative',
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   camera: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
   },
   overlay: {
     flex: 1,
+    backgroundColor: 'transparent',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    padding: 20,
   },
-  topOverlay: {
-    flex: 2,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  middleOverlay: {
-    flex: 5,
-    flexDirection: 'row',
-  },
-  bottomOverlay: {
-    flex: 2,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sideOverlay: {
+  frameContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  scanWindow: {
+  frame: {
     width: windowWidth * 0.7,
-    aspectRatio: 1,
-    position: 'relative',
+    height: windowWidth * 0.7,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    borderRadius: 10,
   },
-  cornerTL: {
+  text: {
+    color: '#ffffff',
+    fontSize: 16,
+    marginTop: 20,
+  },
+  button: {
+    backgroundColor: '#3498db',
+    padding: 15,
+    borderRadius: 5,
+    marginTop: 20,
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  statusContainer: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 20,
-    height: 20,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderColor: 'white',
-  },
-  cornerTR: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 20,
-    height: 20,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderColor: 'white',
-  },
-  cornerBL: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: 20,
-    height: 20,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderColor: 'white',
-  },
-  cornerBR: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 20,
-    height: 20,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderColor: 'white',
-  },
-  torchButton: {
+    top: 40,
+    left: 20,
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  torchText: {
-    color: 'white',
-    marginTop: 5,
-    fontSize: 12,
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
   },
-  scanningOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+  statusText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  controlsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingVertical: 20,
+  },
+  controlButton: {
+    backgroundColor: 'rgba(52, 152, 219, 0.7)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+  },
+  controlButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scanningText: {
-    color: 'white',
+  loadingText: {
+    color: '#ffffff',
+    fontSize: 16,
     marginTop: 10,
-    fontSize: 16,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  permissionText: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-  },
-  permissionSubtext: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#7f8c8d',
-    textAlign: 'center',
-  },
-  disabledContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ecf0f1',
-    padding: 20,
-  },
-  disabledText: {
-    marginTop: 16,
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#7f8c8d',
-  },
-  disabledSubtext: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#95a5a6',
-    textAlign: 'center',
   },
 });
 

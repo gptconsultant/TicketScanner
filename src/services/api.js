@@ -1,72 +1,97 @@
-import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-// Create axios instance with default config
-const api = axios.create({
-  baseURL: 'https://api.example.com/v1',  // This will be replaced with actual API URL when ready
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
+// Base API URL - would be replaced with your actual API endpoint
+const API_BASE_URL = 'https://api.event-scanner.example.com';
+
+// API endpoints
+const ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    LOGOUT: '/auth/logout',
+    VALIDATE_TOKEN: '/auth/validate',
   },
-});
-
-// Request interceptor for adding auth token
-api.interceptors.request.use(
-  async (config) => {
-    try {
-      const token = await AsyncStorage.getItem('userToken');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch (error) {
-      console.error('Error getting token from storage:', error);
-    }
-    return config;
+  EVENTS: {
+    LIST: '/events',
+    GATES: '/events/:eventId/gates',
+    RULES: '/events/:eventId/rules',
   },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Response interceptor for handling common errors
-api.interceptors.response.use(
-  (response) => {
-    return response;
+  TICKETS: {
+    VALIDATE: '/tickets/validate',
+    SYNC: '/tickets/sync',
+    HISTORY: '/events/:eventId/tickets/history',
   },
-  async (error) => {
-    const originalRequest = error.config;
+};
 
-    // Handle 401 Unauthorized errors
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // Try to refresh token (not implemented here)
-        // const newToken = await refreshToken();
-        
-        // For now, just redirect to login
-        // This would be improved with a proper token refresh mechanism
-        await AsyncStorage.removeItem('userToken');
-        // We'll let the auth context handle the redirection based on auth state
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError);
-      }
-    }
-
-    return Promise.reject(error);
-  }
-);
-
-// Function to check if device is connected to API server
-export const checkApiConnection = async () => {
+/**
+ * Generic fetch wrapper with authentication and error handling
+ * @param {string} endpoint - API endpoint
+ * @param {Object} options - Fetch options
+ * @param {string} authToken - Authentication token
+ * @returns {Promise<Object>} - Response data
+ */
+export const fetchFromAPI = async (endpoint, options = {}, authToken = null) => {
   try {
-    const response = await api.get('/health');
-    return response.status === 200;
+    const headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'User-Agent': `EventScanner/${Platform.OS}`,
+    };
+
+    if (authToken) {
+      headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options.headers,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'API request failed');
+    }
+
+    return data;
   } catch (error) {
-    console.log('API connection check failed:', error);
-    return false;
+    console.error('API request error:', error);
+    throw error;
   }
 };
 
-export default api;
+/**
+ * Check if the API server is reachable
+ * @returns {Promise<boolean>} - Whether the API is reachable
+ */
+export const checkApiConnection = async () => {
+  try {
+    // Using a simple endpoint that doesn't require authentication
+    // In a real app, you might have a specific health check endpoint
+    // This is just a mock function for demonstration
+    
+    // In development or when using mock data, we'll return true
+    // In a real app, you would use the commented code below
+    
+    /* 
+    const response = await fetch(`${API_BASE_URL}/health`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+      // Short timeout to not block the UI for too long
+      timeout: 5000,
+    });
+    
+    return response.ok;
+    */
+    
+    // For demo purposes, we'll simulate a successful connection
+    return true;
+  } catch (error) {
+    console.error('API connection check error:', error);
+    return false;
+  }
+};
