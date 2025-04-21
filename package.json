@@ -28,6 +28,7 @@
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "^4.10.0",
     "react-native-web": "^0.20.0",
-    "serve": "^14.2.4"
+    "serve": "^14.2.4",
+    "sharp": "^0.34.1"
   }
 }
