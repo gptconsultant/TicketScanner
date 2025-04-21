@@ -1,111 +1,30 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login, logout } from '../services/authService';
+import * as authService from '../services/authService';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [userToken, setUserToken] = useState(null);
-  const [userRole, setUserRole] = useState(null); // 'admin', 'staff', or 'volunteer'
   const [userInfo, setUserInfo] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
-  const loginUser = async (username, password) => {
-    setIsLoading(true);
-    try {
-      // Call login service
-      const response = await login(username, password);
-      
-      if (response.success) {
-        const { token, role, user } = response;
-        
-        // Store auth data
-        setUserToken(token);
-        setUserRole(role);
-        setUserInfo(user);
-        
-        // Save to AsyncStorage
-        await AsyncStorage.setItem('userToken', token);
-        await AsyncStorage.setItem('userRole', role);
-        await AsyncStorage.setItem('userInfo', JSON.stringify(user));
-      } else {
-        // Handle login failure
-        console.error('Login failed:', response.error);
-        throw new Error(response.error || 'Login failed');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logoutUser = async () => {
-    setIsLoading(true);
-    try {
-      // Call logout service
-      await logout(userToken);
-      
-      // Clear auth data
-      setUserToken(null);
-      setUserRole(null);
-      setUserInfo(null);
-      
-      // Remove from AsyncStorage
-      await AsyncStorage.removeItem('userToken');
-      await AsyncStorage.removeItem('userRole');
-      await AsyncStorage.removeItem('userInfo');
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const isAuthenticated = () => {
-    return !!userToken;
-  };
-
-  const checkVolunteerShift = () => {
-    // For volunteers, check if they're still on shift
-    if (userRole === 'volunteer' && userInfo) {
-      return userInfo.onShift || false;
-    }
-    return false;
-  };
-
-  const startVolunteerShift = async () => {
-    if (userRole === 'volunteer' && userInfo) {
-      const updatedUserInfo = { ...userInfo, onShift: true };
-      setUserInfo(updatedUserInfo);
-      await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
-    }
-  };
-
-  const endVolunteerShift = async () => {
-    if (userRole === 'volunteer' && userInfo) {
-      const updatedUserInfo = { ...userInfo, onShift: false };
-      setUserInfo(updatedUserInfo);
-      await AsyncStorage.setItem('userInfo', JSON.stringify(updatedUserInfo));
-    }
-  };
-
-  // Check if user is already logged in on app start
+  // Load token and user info from storage on mount
   useEffect(() => {
     const bootstrapAsync = async () => {
       try {
-        const storedToken = await AsyncStorage.getItem('userToken');
-        const storedRole = await AsyncStorage.getItem('userRole');
-        const storedUserInfo = await AsyncStorage.getItem('userInfo');
+        const token = await AsyncStorage.getItem('userToken');
+        const userInfoStr = await AsyncStorage.getItem('userInfo');
+        const role = await AsyncStorage.getItem('userRole');
         
-        if (storedToken && storedRole) {
-          setUserToken(storedToken);
-          setUserRole(storedRole);
-          setUserInfo(storedUserInfo ? JSON.parse(storedUserInfo) : null);
+        if (token && userInfoStr && role) {
+          setUserToken(token);
+          setUserInfo(JSON.parse(userInfoStr));
+          setUserRole(role);
         }
-      } catch (error) {
-        console.error('Error restoring auth state:', error);
+      } catch (e) {
+        console.error('Failed to load auth data from storage:', e);
       } finally {
         setIsLoading(false);
       }
@@ -114,19 +33,75 @@ export const AuthProvider = ({ children }) => {
     bootstrapAsync();
   }, []);
 
+  const login = async (userData) => {
+    try {
+      setIsLoading(true);
+      
+      // In a real app, this would call an API
+      // Here we're just setting mock data for demo
+      const { username, role } = userData;
+      
+      // Simulate API call
+      // const response = await authService.login(username, password);
+      const mockToken = `mock-token-${role}-${Date.now()}`;
+      const mockUserInfo = {
+        id: role === 'admin' ? 1 : role === 'staff' ? 2 : 3,
+        username,
+        name: `${role.charAt(0).toUpperCase() + role.slice(1)} User`,
+        email: `${username}@example.com`
+      };
+      
+      // Store auth data
+      await AsyncStorage.setItem('userToken', mockToken);
+      await AsyncStorage.setItem('userInfo', JSON.stringify(mockUserInfo));
+      await AsyncStorage.setItem('userRole', role);
+      
+      // Update state
+      setUserToken(mockToken);
+      setUserInfo(mockUserInfo);
+      setUserRole(role);
+      
+      return { success: true };
+    } catch (error) {
+      throw new Error(error.message || 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      setIsLoading(true);
+      
+      // In a real app, call logout API
+      // await authService.logout(userToken);
+      
+      // Clear storage
+      await AsyncStorage.removeItem('userToken');
+      await AsyncStorage.removeItem('userInfo');
+      await AsyncStorage.removeItem('userRole');
+      
+      // Reset state
+      setUserToken(null);
+      setUserInfo(null);
+      setUserRole(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
         isLoading,
         userToken,
-        userRole,
         userInfo,
-        isAuthenticated,
-        login: loginUser,
-        logout: logoutUser,
-        checkVolunteerShift,
-        startVolunteerShift,
-        endVolunteerShift
+        userRole,
+        login,
+        logout,
+        isAuthenticated: !!userToken,
       }}
     >
       {children}

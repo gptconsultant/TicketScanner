@@ -1,5 +1,5 @@
-import api from './api';
-import { mockLogin, mockLogout } from './mockData';
+import { fetchFromAPI } from './api';
+import * as mockData from './mockData';
 
 /**
  * Login user with username and password
@@ -8,20 +8,21 @@ import { mockLogin, mockLogout } from './mockData';
  * @returns {Promise<Object>} - Login result with token, role, and user info
  */
 export const login = async (username, password) => {
+  // In a real app, this would call your backend API
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.post('/auth/login', { username, password });
-    // return response.data;
-
-    // For now, use mock data
-    return await mockLogin(username, password);
+    // For demo purposes, use mock implementation
+    return await mockData.mockLogin(username, password);
+    
+    // Real implementation:
+    // return await fetchFromAPI('/auth/login', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({ username, password }),
+    // });
   } catch (error) {
-    console.error('Login error:', error);
-    throw new Error(
-      error.response?.data?.message || 
-      error.message || 
-      'Login failed. Please check your credentials and try again.'
-    );
+    throw new Error(error.message || 'Login failed');
   }
 };
 
@@ -31,20 +32,20 @@ export const login = async (username, password) => {
  * @returns {Promise<Object>} - Logout result
  */
 export const logout = async (token) => {
+  // In a real app, this would call your backend API
   try {
-    // When ready for real API, uncomment this:
-    // const response = await api.post('/auth/logout');
-    // return response.data;
-
-    // For now, use mock data
-    return await mockLogout(token);
+    // For demo purposes, use mock implementation
+    return await mockData.mockLogout();
+    
+    // Real implementation:
+    // return await fetchFromAPI('/auth/logout', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Authorization': `Bearer ${token}`,
+    //   },
+    // }, token);
   } catch (error) {
-    console.error('Logout error:', error);
-    throw new Error(
-      error.response?.data?.message || 
-      error.message || 
-      'Logout failed. Please try again.'
-    );
+    throw new Error(error.message || 'Logout failed');
   }
 };
 
@@ -53,16 +54,19 @@ export const logout = async (token) => {
  * @returns {Promise<Object>} - User profile data
  */
 export const getUserProfile = async () => {
+  // In a real app, this would call your backend API
   try {
-    const response = await api.get('/auth/profile');
-    return response.data;
+    // For demo purposes, this would be implemented with real API calls
+    // return await fetchFromAPI('/auth/profile', {
+    //   method: 'GET',
+    //   headers: {
+    //     'Authorization': `Bearer ${token}`,
+    //   },
+    // }, token);
+    
+    throw new Error('Not implemented');
   } catch (error) {
-    console.error('Get user profile error:', error);
-    throw new Error(
-      error.response?.data?.message || 
-      error.message || 
-      'Failed to get user profile. Please try again.'
-    );
+    throw new Error(error.message || 'Failed to get user profile');
   }
 };
 
@@ -72,11 +76,21 @@ export const getUserProfile = async () => {
  * @returns {Promise<boolean>} - Whether token is valid
  */
 export const validateToken = async (token) => {
+  // In a real app, this would call your backend API
   try {
-    const response = await api.post('/auth/validate', { token });
-    return response.data.valid;
+    // For demo purposes, this would be implemented with real API calls
+    // return await fetchFromAPI('/auth/validate', {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     'Authorization': `Bearer ${token}`,
+    //   },
+    // }, token);
+    
+    // For demo, just return true
+    return true;
   } catch (error) {
-    console.error('Token validation error:', error);
+    // If token validation fails, return false
     return false;
   }
 };

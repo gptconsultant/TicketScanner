@@ -1,151 +1,173 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  KeyboardAvoidingView, 
-  Platform, 
-  TouchableWithoutFeedback, 
-  Keyboard,
-  Alert
-} from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Image, Platform } from 'react-native';
 import { TextInput, Button } from 'react-native-paper';
-import useAuth from '../../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 
-const LoginScreen = ({ navigation }) => {
+const LoginScreen = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const { login } = useAuth();
 
   const handleLogin = async () => {
+    // Basic validation
     if (!username.trim() || !password.trim()) {
-      Alert.alert('Error', 'Username and password are required');
+      setError('Username and password are required');
       return;
     }
 
-    setIsSubmitting(true);
+    setError('');
+    setIsLoading(true);
+
     try {
-      await login(username, password);
-      // No need to navigate, the AppNavigator will handle routing based on auth state
-    } catch (error) {
-      Alert.alert('Login Failed', error.message || 'Please check your credentials and try again');
+      // Use demo accounts for testing
+      if (
+        (username === 'admin' && password === 'password') ||
+        (username === 'staff' && password === 'password') ||
+        (username === 'volunteer' && password === 'password')
+      ) {
+        // Determine role based on username
+        const role = username.toLowerCase();
+        await login({ username, role });
+      } else {
+        setError('Invalid credentials. Try admin/password, staff/password, or volunteer/password');
+      }
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.inner}>
-          <Text style={styles.title}>Event Ticket Scanner</Text>
-          <Text style={styles.subtitle}>Staff Login</Text>
+    <View style={styles.container}>
+      <View style={styles.logoContainer}>
+        <Image 
+          source={{ uri: 'https://reactnative.dev/img/tiny_logo.png' }} 
+          style={styles.logo} 
+        />
+        <Text style={styles.title}>Event Ticket Scanner</Text>
+        <Text style={styles.subtitle}>Login to your account</Text>
+      </View>
 
-          <View style={styles.formContainer}>
-            <TextInput
-              label="Username"
-              value={username}
-              onChangeText={setUsername}
-              style={styles.input}
-              autoCapitalize="none"
-              disabled={isSubmitting}
-            />
+      <View style={styles.formContainer}>
+        <TextInput
+          label="Username"
+          value={username}
+          onChangeText={setUsername}
+          style={styles.input}
+          autoCapitalize="none"
+          disabled={isLoading}
+          mode="outlined"
+        />
 
-            <TextInput
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              style={styles.input}
-              disabled={isSubmitting}
-            />
+        <TextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+          disabled={isLoading}
+          mode="outlined"
+        />
 
-            <Button
-              mode="contained"
-              onPress={handleLogin}
-              style={styles.button}
-              loading={isSubmitting}
-              disabled={isSubmitting}
-            >
-              Login
-            </Button>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            {/* Add these for testing demo purposes */}
-            <View style={styles.demoContainer}>
-              <Text style={styles.demoText}>Demo Accounts:</Text>
-              <Text style={styles.demoCredentials}>Admin: admin / password</Text>
-              <Text style={styles.demoCredentials}>Staff: staff / password</Text>
-              <Text style={styles.demoCredentials}>Volunteer: volunteer / password</Text>
-            </View>
-          </View>
+        <Button
+          mode="contained"
+          onPress={handleLogin}
+          loading={isLoading}
+          disabled={isLoading}
+          style={styles.button}
+        >
+          Login
+        </Button>
+
+        <View style={styles.demoAccountsContainer}>
+          <Text style={styles.demoTitle}>Demo Accounts:</Text>
+          <TouchableOpacity onPress={() => {
+            setUsername('admin');
+            setPassword('password');
+          }}>
+            <Text style={styles.demoAccount}>Admin: admin / password</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => {
+            setUsername('staff');
+            setPassword('password');
+          }}>
+            <Text style={styles.demoAccount}>Staff: staff / password</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => {
+            setUsername('volunteer');
+            setPassword('password');
+          }}>
+            <Text style={styles.demoAccount}>Volunteer: volunteer / password</Text>
+          </TouchableOpacity>
         </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    padding: 20,
+    backgroundColor: '#fff',
   },
-  inner: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
+  logoContainer: {
+    alignItems: 'center',
+    marginTop: 60,
+    marginBottom: 40,
+  },
+  logo: {
+    width: 80,
+    height: 80,
+    resizeMode: 'contain',
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#2c3e50',
-    textAlign: 'center',
-    marginBottom: 8,
+    marginTop: 16,
+    color: '#333',
   },
   subtitle: {
-    fontSize: 18,
-    color: '#7f8c8d',
-    textAlign: 'center',
-    marginBottom: 32,
+    fontSize: 16,
+    color: '#666',
+    marginTop: 8,
   },
   formContainer: {
-    backgroundColor: 'white',
-    borderRadius: 8,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
   },
   input: {
     marginBottom: 16,
-    backgroundColor: 'white',
+    backgroundColor: '#f9f9f9',
   },
   button: {
-    marginTop: 8,
+    marginTop: 16,
     paddingVertical: 8,
-    backgroundColor: '#2c3e50',
   },
-  demoContainer: {
-    marginTop: 24,
-    padding: 12,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
+  errorText: {
+    color: 'red',
+    marginBottom: 16,
   },
-  demoText: {
+  demoAccountsContainer: {
+    marginTop: 40,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  demoTitle: {
     fontWeight: 'bold',
     marginBottom: 8,
-    textAlign: 'center',
   },
-  demoCredentials: {
-    fontSize: 12,
-    marginBottom: 4,
-    textAlign: 'center',
-    color: '#555',
+  demoAccount: {
+    color: '#0066cc',
+    marginBottom: 8,
+    textDecorationLine: 'underline',
   },
 });
 

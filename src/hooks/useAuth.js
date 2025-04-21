@@ -1,7 +1,11 @@
 import { useContext } from 'react';
 import { AuthContext } from '../contexts/AuthContext';
 
-const useAuth = () => {
+/**
+ * Hook to access the authentication context
+ * @returns {Object} Authentication context methods and state
+ */
+export const useAuth = () => {
   const context = useContext(AuthContext);
   
   if (!context) {
@@ -10,5 +14,3 @@ const useAuth = () => {
   
   return context;
 };
-
-export default useAuth;
